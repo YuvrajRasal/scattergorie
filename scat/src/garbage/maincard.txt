@@ -1,6 +1,18 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
-import { doc, setDoc, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  setDoc,
+  updateDoc,
+  getDocs,
+  onSnapshot,
+  increment,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+} from "firebase/firestore";
 
 const categories = [
   "Animal",
@@ -26,73 +38,132 @@ function Maincard() {
   const [turn, setTurn] = useState(0);
   const [playerName, setPlayerName] = useState("");
   const [playerId, setPlayerId] = useState("");
+  const [playerScore, setPlayerScore] = useState(0);
 
-  // Reference to Firestore doc
+  // References
   const gameRef = doc(db, "games", "defaultGame");
+  const playersRef = collection(gameRef, "players");
 
+  // 🔹 Join Game
+  const handleJoin = async () => {
+    if (!playerName) return alert("Enter your name");
+
+    // 🔍 Check if this name already exists
+    const playersRef = collection(db, "games", "defaultGame", "players");
+    const q = query(playersRef, where("name", "==", playerName));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      alert("This name is already taken! Please choose another.");
+      return;
+    }
+
+    // ✅ Create unique player document
+    const newPlayerId = Date.now().toString(); // simple unique ID
+    await setDoc(doc(playersRef, newPlayerId), {
+      name: playerName,
+      score: 0,
+      answers: [],
+    });
+
+    setPlayerId(newPlayerId);
+    alert(`Welcome ${playerName}! You joined the game.`);
+  };
+
+  // 🔹 Get random category/letter
   const getRandomCategory = () =>
     categories[Math.floor(Math.random() * categories.length)];
-
   const getRandomLetter = () =>
     letters[Math.floor(Math.random() * letters.length)];
 
+  // 🔹 Tap Category
   const handleCategoryClick = async () => {
+    if (!playerId) return alert("Join the game first!");
     const newCategory = getRandomCategory();
     const newTurn = turn + 1;
 
-    const handleJoin = () => {
-      if (!playerName) return alert("Enter your name");
-      setPlayerId(Date.now().toString()); // simple unique ID
-    };
-
-    //category
     await setDoc(
       gameRef,
-      {
-        category: newCategory || categories[0],
-        letter: current.letter || letters[0],
-        turn: newTurn,
-      },
+      { category: newCategory, turn: newTurn },
       { merge: true }
     );
+
+    // increment player score
+    await updateDoc(doc(playersRef, playerId), { score: increment(1) });
 
     setHistory([...history, current]);
     setHint("");
   };
 
-  //letter
+  // 🔹 Tap Letter
   const handleLetterClick = async () => {
+    if (!playerId) return alert("Join the game first!");
     const newLetter = getRandomLetter();
     const newTurn = turn + 1;
 
     await setDoc(
       gameRef,
-      {
-        category: current.category || categories[0],
-        letter: newLetter || letters[0],
-        turn: newTurn,
-      },
+      { letter: newLetter, turn: newTurn },
       { merge: true }
     );
+
+    // increment player score
+    await updateDoc(doc(playersRef, playerId), { score: increment(1) });
 
     setHistory([...history, current]);
     setHint("");
   };
 
-  //start
+  // 🔹 Back
+  const handleBack = async () => {
+    if (!playerId) return alert("Join the game first!");
+    if (history.length === 0) return;
+    const prev = history[history.length - 1];
+    const newTurn = Math.max(turn - 1, 0);
+
+    setHistory(history.slice(0, -1));
+    setCurrent(prev);
+    setHint("");
+
+    await setDoc(
+      gameRef,
+      { category: prev.category, letter: prev.letter, turn: newTurn },
+      { merge: true }
+    );
+
+    // decrement player score
+    await updateDoc(doc(playersRef, playerId), { score: increment(-1) });
+  };
+
+  // 🔹 Foul
+  const handleFoul = async () => {
+    if (!playerId) return alert("Join the game first!");
+    await updateDoc(doc(playersRef, playerId), { score: increment(-1) });
+  };
+
+  //exit game
+  const handleExitGame = async () => {
+    if (!playerId) return;
+    try {
+      await deleteDoc(doc(db, "games", "defaultGame", "players", playerId));
+      setPlayerId(""); // reset locally
+      setPlayerName("");
+      alert("You have exited the game.");
+    } catch (error) {
+      console.error("Error exiting game: ", error);
+    }
+  };
+
+  // 🔹 Start Game
   const handleStartGame = async () => {
     await setDoc(
       gameRef,
-      {
-        ...current,
-        gameStarted: true,
-        turn: 1,
-      },
+      { ...current, gameStarted: true, turn: 1 },
       { merge: true }
     );
   };
 
-  //end
+  // 🔹 End Game
   const handleEndGame = async () => {
     await setDoc(
       gameRef,
@@ -107,50 +178,18 @@ function Maincard() {
 
     setHistory([]);
     setHint("");
+    setPlayerScore(0);
+
+    // reset all players’ scores
+    const snapshot = await getDocs(playersRef);
+    snapshot.forEach(async (docSnap) => {
+      await updateDoc(docSnap.ref, { score: 0 });
+    });
   };
 
-  //Back
-  const handleBack = async () => {
-    if (history.length === 0) return;
-    const prev = history[history.length - 1];
-    const newTurn = Math.max(turn - 1, 0); // avoid negative turn
-
-    setHistory(history.slice(0, -1));
-    setCurrent(prev);
-    setHint("");
-
-    await setDoc(
-      gameRef,
-      {
-        category: prev.category,
-        letter: prev.letter,
-        turn: newTurn,
-      },
-      { merge: true }
-    );
-  };
-
-  const handleHint = () => {
-    setHint(
-      `Try something starting with "${current.letter}" in category "${current.category}".`
-    );
-  };
-
-  // 🔄 Sync with Firestore
+  // 🔄 Sync game + player score
   useEffect(() => {
-    const initializeGame = async () => {
-      const docSnap = await getDoc(gameRef);
-      if (!docSnap.exists()) {
-        await setDoc(gameRef, {
-          category: categories[0],
-          letter: letters[0],
-        });
-      }
-    };
-
-    initializeGame();
-
-    const unsub = onSnapshot(gameRef, (docSnap) => {
+    const unsubGame = onSnapshot(gameRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setCurrent({ category: data.category, letter: data.letter });
@@ -159,11 +198,70 @@ function Maincard() {
       }
     });
 
-    return () => unsub();
-  }, []);
+    let unsubPlayer;
+    if (playerId) {
+      unsubPlayer = onSnapshot(doc(playersRef, playerId), (docSnap) => {
+        if (docSnap.exists()) setPlayerScore(docSnap.data().score);
+      });
+    }
+
+    return () => {
+      unsubGame();
+      if (unsubPlayer) unsubPlayer();
+    };
+  }, [playerId]);
+
+  const handleHint = () => {
+    setHint(
+      `Try something starting with "${current.letter}" in category "${current.category}".`
+    );
+  };
+
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-blue-100 to-purple-200 p-4">
       <h2 className="text-3xl font-bold mb-6">Scattergories 🎲</h2>
+
+      {/* {!playerId && (
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Enter your name"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            className="border p-2 rounded mr-2"
+          />
+          <button
+            onClick={handleJoin}
+            className="py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            Join Game
+          </button>
+        </div>
+      )} */}
+      {!playerId && (
+        <div className="flex flex-col items-center gap-4 mb-6">
+          <input
+            type="text"
+            placeholder="Enter your name"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            className="p-2 border rounded-lg"
+          />
+          <button
+            onClick={handleJoin}
+            className="py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            Join Game
+          </button>
+        </div>
+      )}
+
+      {playerId && (
+        <div className="mb-4">
+          👤 {playerName} | Score: {playerScore}
+        </div>
+      )}
+
       {!gameStarted && (
         <button
           onClick={handleStartGame}
@@ -186,9 +284,17 @@ function Maincard() {
         </button>
       )}
 
+      {playerId && (
+        <button
+          onClick={handleExitGame}
+          className="py-3 px-6 bg-orange-500 text-white rounded-lg hover:bg-orange-600 mb-4"
+        >
+          Exit Game
+        </button>
+      )}
+
       {/* Cards */}
       <div className="flex gap-6 mb-6">
-        {/* Category Card */}
         <div
           onClick={handleCategoryClick}
           className="cursor-pointer bg-white rounded-xl shadow-lg p-6 w-40 h-40 flex flex-col justify-center items-center hover:bg-gray-100"
@@ -197,7 +303,6 @@ function Maincard() {
           <p className="text-xl font-semibold">{current.category}</p>
         </div>
 
-        {/* Letter Card */}
         <div
           onClick={handleLetterClick}
           className="cursor-pointer bg-white rounded-xl shadow-lg p-6 w-40 h-40 flex flex-col justify-center items-center hover:bg-gray-100"
@@ -207,7 +312,6 @@ function Maincard() {
         </div>
       </div>
 
-      {/* Hint */}
       {hint && (
         <div className="bg-yellow-100 p-4 rounded-lg mb-6 text-lg text-gray-700 w-full max-w-md text-center">
           💡 {hint}
@@ -227,6 +331,12 @@ function Maincard() {
           className="flex-1 py-3 bg-yellow-400 rounded-lg hover:bg-yellow-500 text-lg"
         >
           💡 Hint
+        </button>
+        <button
+          onClick={handleFoul}
+          className="flex-1 py-3 bg-red-400 rounded-lg hover:bg-red-500 text-lg"
+        >
+          ⚠ Foul
         </button>
       </div>
     </div>

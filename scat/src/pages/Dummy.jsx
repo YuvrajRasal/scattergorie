@@ -27,7 +27,7 @@ const categories = [
 
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-function Maincard() {
+function Dummy() {
   const [history, setHistory] = useState([]);
   const [current, setCurrent] = useState({
     category: categories[0],
@@ -231,6 +231,8 @@ function Maincard() {
         setCurrent({ category: data.category, letter: data.letter });
         setGameStarted(data.gameStarted || false);
         setTurn(data.turn || 0);
+        if (data?.turn > 25) {
+        }
       }
     });
 
@@ -247,15 +249,123 @@ function Maincard() {
     };
   }, [playerId]);
 
-  const handleHint = () => {
-    setHint(
-      `Try something starting with "${current.letter}" in category "${current.category}".`
-    );
+  const handleHint = async () => {
+    const hintResponse = await getHint(current.category, current.letter);
+    setHint(hintResponse); // show in hint box
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-blue-100 to-purple-200 p-4">
-      <h2 className="text-3xl font-bold mb-6">Scattergories 🎲</h2>
+    <div className="flex flex-col items-center  h-screen bg-gradient-to-br from-blue-100 to-purple-200 p-4">
+      <div className="flex justify-between space-x-4">
+        {!playerId && (
+          <div className="flex flex-row items-center gap-4 mb-3">
+            <input
+              type="text"
+              placeholder="Enter your name"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              className="p-2 border rounded-lg"
+            />
+            <button
+              onClick={handleJoin}
+              className="py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Join Game
+            </button>
+          </div>
+        )}
+        {!gameStarted && (
+          <button
+            onClick={handleStartGame}
+            className="py-1 px-6 bg-green-500 text-white rounded-lg hover:bg-green-600 mb-6"
+          >
+            Start Game
+          </button>
+        )}
+        {gameStarted && (
+          <button
+            onClick={handleEndGame}
+            className="py-1 px-6 bg-red-500 text-white rounded-lg hover:bg-red-600 mb-4"
+          >
+            End Game
+          </button>
+        )}
+
+        {playerId && (
+          <div className="mb-4">
+            👤 {playerName} | Score: {playerScore} |
+            {gameStarted && (
+              <span className="mb-4 text-lg font-semibold"> Turn: {turn}</span>
+            )}
+          </div>
+        )}
+
+        {playerId && (
+          <button
+            onClick={handleExitGame}
+            className="py-1 px-6 bg-orange-500 text-white rounded-lg hover:bg-orange-600 mb-4 ml-4"
+          >
+            Exit Game
+          </button>
+        )}
+      </div>
+
+      {/* Cards */}
+      <div className="flex gap-6 mb-3">
+        <div
+          onClick={handleCategoryClick}
+          className="select-none cursor-pointer space-y-4  bg-white rounded-xl shadow-lg p-6 w-56 h-56 flex flex-col justify-center items-center hover:bg-gray-100"
+        >
+          <p className="text-2xl text-gray-600">Category</p>
+          <p className="text-5xl font-semibold text-center">
+            {current.category}
+          </p>
+        </div>
+
+        <div
+          onClick={handleLetterClick}
+          className="select-none cursor-pointer  space-y-2  bg-white rounded-xl shadow-lg p-6 w-56 h-56 flex flex-col justify-center items-center hover:bg-gray-100"
+        >
+          <p className="text-2xl text-gray-600 ">Letter</p>
+          <p className="text-7xl font-bold text-blue-600">{current.letter}</p>
+        </div>
+      </div>
+
+      {hint && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-yellow-100 p-4 rounded-lg text-lg text-gray-700 w-full max-w-xl text-center shadow-xl z-50 flex justify-between items-center">
+          💡 {hint}
+          <button
+            className="items-start justify-start text-red"
+            onClick={() => {
+              setHint(null);
+            }}
+          >
+            ❌
+          </button>
+        </div>
+      )}
+
+      {/* Buttons */}
+      <div className="flex justify-between gap-12 w-full max-w-2xl">
+        <button
+          onClick={handleBack}
+          className="flex-1 bg-gray-300 rounded-lg hover:bg-gray-400 text-lg"
+        >
+          ⬅ Back
+        </button>
+        <button
+          onClick={handleHint}
+          className="flex-1 bg-yellow-400 rounded-lg hover:bg-yellow-500 text-lg"
+        >
+          💡 Hint
+        </button>
+        <button
+          onClick={handleFoul}
+          className="flex-1 bg-red-400 rounded-lg hover:bg-red-500 text-lg"
+        >
+          ⚠ Foul
+        </button>
+      </div>
       {/* leaderboard */}
       {/* <div>
         <button
@@ -309,109 +419,8 @@ function Maincard() {
           </ul>
         )}
       </div> */}
-      {!playerId && (
-        <div className="flex flex-col items-center gap-4 mb-6">
-          <input
-            type="text"
-            placeholder="Enter your name"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            className="p-2 border rounded-lg"
-          />
-          <button
-            onClick={handleJoin}
-            className="py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-            Join Game
-          </button>
-        </div>
-      )}
-
-      {playerId && (
-        <div className="mb-4">
-          👤 {playerName} | Score: {playerScore}
-        </div>
-      )}
-
-      {!gameStarted && (
-        <button
-          onClick={handleStartGame}
-          className="py-3 px-6 bg-green-500 text-white rounded-lg hover:bg-green-600 mb-6"
-        >
-          Start Game
-        </button>
-      )}
-
-      {gameStarted && (
-        <div className="mb-4 text-lg font-semibold">Turn: {turn}</div>
-      )}
-
-      {gameStarted && (
-        <button
-          onClick={handleEndGame}
-          className="py-3 px-6 bg-red-500 text-white rounded-lg hover:bg-red-600 mb-4"
-        >
-          End Game
-        </button>
-      )}
-
-      {playerId && (
-        <button
-          onClick={handleExitGame}
-          className="py-3 px-6 bg-orange-500 text-white rounded-lg hover:bg-orange-600 mb-4"
-        >
-          Exit Game
-        </button>
-      )}
-
-      {/* Cards */}
-      <div className="flex gap-6 mb-6">
-        <div
-          onClick={handleCategoryClick}
-          className="cursor-pointer bg-white rounded-xl shadow-lg p-6 w-40 h-40 flex flex-col justify-center items-center hover:bg-gray-100"
-        >
-          <p className="text-lg text-gray-600">Category</p>
-          <p className="text-xl font-semibold">{current.category}</p>
-        </div>
-
-        <div
-          onClick={handleLetterClick}
-          className="cursor-pointer bg-white rounded-xl shadow-lg p-6 w-40 h-40 flex flex-col justify-center items-center hover:bg-gray-100"
-        >
-          <p className="text-lg text-gray-600">Letter</p>
-          <p className="text-5xl font-bold text-blue-600">{current.letter}</p>
-        </div>
-      </div>
-
-      {hint && (
-        <div className="bg-yellow-100 p-4 rounded-lg mb-6 text-lg text-gray-700 w-full max-w-md text-center">
-          💡 {hint}
-        </div>
-      )}
-
-      {/* Buttons */}
-      <div className="flex justify-between gap-4 w-full max-w-md">
-        <button
-          onClick={handleBack}
-          className="flex-1 py-3 bg-gray-300 rounded-lg hover:bg-gray-400 text-lg"
-        >
-          ⬅ Back
-        </button>
-        <button
-          onClick={handleHint}
-          className="flex-1 py-3 bg-yellow-400 rounded-lg hover:bg-yellow-500 text-lg"
-        >
-          💡 Hint
-        </button>
-        <button
-          onClick={handleFoul}
-          className="flex-1 py-3 bg-red-400 rounded-lg hover:bg-red-500 text-lg"
-        >
-          ⚠ Foul
-        </button>
-      </div>
     </div>
   );
 }
 
-export default Maincard;
+export default Dummy;
