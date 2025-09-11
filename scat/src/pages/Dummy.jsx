@@ -48,6 +48,7 @@ function Dummy() {
   const [players, setPlayers] = useState([]);
   const [open, setOpen] = useState(false);
   const [displayLeaderBoard, setdisplayLeaderBoard] = useState(false);
+  const [displayPlayerList, setDisplayPlayerList] = useState(false);
 
   // References
   const gameRef = doc(db, "games", "defaultGame");
@@ -129,6 +130,7 @@ function Dummy() {
         ...doc.data(),
       }));
       setPlayers(list);
+      console.log(list);
     });
 
     return () => unsubscribe();
@@ -393,21 +395,24 @@ Give me exactly 3 clues for a possible answer without revealing the word, speak 
               borderRadius: 30,
             }}
             transition={{ type: "spring", stiffness: 200, damping: 20 }}
-            className="select-none mx-auto bg-black text-white shadow-lg px-6 py-3 flex items-center justify-around gap-4"
+            className=" mx-auto bg-black text-white shadow-lg px-6 py-3 flex items-center justify-around gap-4"
           >
             <motion.span
               key={playerScore} // re-triggers animation when score changes
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 300 }}
-              className="text-yellow-400 font-semibold"
+              className="text-yellow-400 font-semibold select-none"
             >
               🪙 {playerScore}
             </motion.span>
             {/* <span className="text-yellow-400 font-semibold">
             🏆 {playerScore}
           </span> */}
-            <span className="text-white font-medium uppercase">
+            <span
+              className="text-white font-medium uppercase  select-none"
+              onDoubleClick={() => setDisplayPlayerList(true)}
+            >
               👤 {playerName}
             </span>
             <motion.span
@@ -415,7 +420,7 @@ Give me exactly 3 clues for a possible answer without revealing the word, speak 
               initial={{ opacity: 0.5 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
-              className="text-green-400 font-semibold text-sm sm:text-base md:text-lg"
+              className="text-green-400 font-semibold text-sm sm:text-base md:text-lg  select-none"
             >
               🎯 {turn > RoundLimit ? turn - 1 : turn} / {RoundLimit}
             </motion.span>
@@ -535,6 +540,46 @@ Give me exactly 3 clues for a possible answer without revealing the word, speak 
                         {i + 1}. {p.name}
                       </span>
                       <span className="font-bold text-blue-600">{p.score}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+        {/* player list to reove */}
+        {!displayLeaderBoard && displayPlayerList && (
+          <div className="absolute inset-0 flex items-center justify-center z-50">
+            <div className="relative p-4 bg-gray-100 rounded-2xl shadow-lg max-w-md min-w-[230px]  mx-auto max-h-96 sm:max-h-96 overflow-y-auto uppercase">
+              {/* Close button (top-right) */}
+              <button
+                onClick={() => setDisplayPlayerList(false)}
+                className="absolute top-0.5 right-1.5 text-red-500 hover:text-red-700 text-xl font-bold "
+              >
+                ✖
+              </button>
+              <h2 className="text-xl font-bold text-center mb-2 ">
+                Player List
+              </h2>
+
+              {players.length === 0 ? (
+                <p className="text-gray-500 text-center">No scores yet</p>
+              ) : (
+                <ul className="space-y-2 ">
+                  {players.map((p, i) => (
+                    <li
+                      key={p.id}
+                      className={`flex justify-between items-center p-3 rounded-xl shadow-sm bg-gray-200`}
+                    >
+                      <span className="font-medium mr-2">
+                        {i + 1}. {p.name}
+                      </span>
+                      <button
+                        onClick={() => handleDelete(p.id)}
+                        className=" px-1 py-1 rounded-md hover:text-red-600 transition"
+                      >
+                        🗑️
+                      </button>
                     </li>
                   ))}
                 </ul>
