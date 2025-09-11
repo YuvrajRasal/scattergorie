@@ -1,15 +1,13 @@
 [build]
   base    = "scat"
   command = "npm run build"
-  publish = "scat/dist"
+  publish = "dist"
 
-# Fix SPA routing (important for React Router, otherwise refresh on /page gives 404)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Ensure JS is served with correct MIME type
 [[headers]]
   for = "/*.js"
   [headers.values]
