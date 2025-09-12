@@ -35,8 +35,8 @@ const letters = "ABCDEFGHMPRSTLW".split("");
 function Dummy() {
   const [history, setHistory] = useState([]);
   const [current, setCurrent] = useState({
-    category: categories[0],
-    letter: letters[0],
+    category: categories[Math.floor(Math.random() * categories.length)],
+    letter: letters[Math.floor(Math.random() * letters.length)],
   });
   const [hint, setHint] = useState("");
   //   true since game is alwyas on
@@ -89,8 +89,9 @@ function Dummy() {
     await setDoc(
       gameRef,
       {
-        category: categories[0],
-        letter: letters[0],
+        category: categories[Math.floor(Math.random() * categories.length)],
+        letter: letters[Math.floor(Math.random() * letters.length)],
+
         turn: 1,
       },
       { merge: true }
@@ -289,11 +290,6 @@ function Dummy() {
         if (data?.turn > RoundLimit) {
           //   handleEndGame();
           setdisplayLeaderBoard(true);
-
-          // Auto-hide leaderboard after 10 seconds
-          //   setTimeout(() => {
-          //     setdisplayLeaderBoard(false);
-          //   }, 10000); // 10000 ms = 10 seconds
         }
       }
     });
@@ -327,6 +323,7 @@ function Dummy() {
   //       setHint("⚠️ Could not fetch hint. Try again.");
   //     }
   //   };
+
   const handleHint = async () => {
     try {
       const prompt = encodeURIComponent(
@@ -340,6 +337,11 @@ Give me exactly 3 clues for a possible answer without revealing the word, speak 
       console.error("Error fetching hint:", err);
       setHint("⚠️ Could not fetch hint. Try again.");
     }
+  };
+
+  //   leaderboard descending ordert:
+  const sortPlayersByScore = (players) => {
+    return [...players].sort((a, b) => b.score - a.score);
   };
 
   return (
@@ -566,7 +568,7 @@ Give me exactly 3 clues for a possible answer without revealing the word, speak 
                 <p className="text-gray-500 text-center">No scores yet</p>
               ) : (
                 <ul className="space-y-2 ">
-                  {players.map((p, i) => (
+                  {sortPlayersByScore(players)?.map((p, i) => (
                     <li
                       key={p.id}
                       className={`flex justify-between items-center p-3 rounded-xl shadow-sm bg-gray-200`}
